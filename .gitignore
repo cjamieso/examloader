@@ -1,4 +1,4 @@
 node_modules
 client-secret.json
-*/src/*.html
+*/src/renderer/*.html
 

@@ -5,19 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Moodle Exam Loader</title>
+    <link rel="stylesheet" type="text/css" href="./css/renderer.css">
   </head>
   <body>
-    <h1>Load Exam</h1>
-    <p>Use the file loader below to load your exam.</p>
-    <div class="container">
-      <textarea id="output" class="form-control" placeholder="File Contents..." rows="10"></textarea>
-      <button id="openButton" class="btn btn-primary">Open Exam</button>
-      <button id="loginButton" class="btn btn-primary">Login to Google</button>
-      <div class="textcontainer"></div>
+    <div class="left">
+      <h1>Load Exam</h1>
+      <p>Use the file loader below to load your exam.</p>
+      <div class="container">
+        <span class="label">Document ID:</span>
+        <input id="docID" />
+        <button id="loginButton" class="btn btn-primary">Login to Google</button>
+        <button id="convertButton" class="btn btn-primary">Convert Exam</button>
+        <button id="displayButton" class="btn btn-primary">Display Exam</button>
+        <button id="xmlButton" class="btn btn-primary">Create XML file</button>
+        <div class="textcontainer"></div>
+      </div>
+    </div>
+    <div class="right">
+      <div id="userData">
+        <p>Profile Details</p>
+        <img id="userPicture" class="img-circle" width="100" height="100" />
+        <p id="name" class="alert alert-danger"></p>
+      </div>
     </div>
     <script>
       window.$ = window.jQuery = require('./node_modules/jquery/dist/jquery.min.js');
-      require('./src/renderer.js')
+      require('./src/renderer/renderer.js')
     </script>
   </body>
 </html>
