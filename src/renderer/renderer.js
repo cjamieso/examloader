@@ -10,24 +10,36 @@ const XML = require('../common/libs/xml.js').xml;
 let googleOauth = null;
 let filename = null;
 
-$("#convertButton").click(function () {
-    var fileId = $("#docID").val();
-    exportFile(fileId);
-});
-
 $("#loginButton").click(async function() {
 
     const contents = await getCredentials();
     googleOauth = new googleOauth2(contents.credentials.client_id, contents.credentials.client_secret, ['https://www.googleapis.com/auth/drive.readonly']);
     await googleOauth.openAuthWindowAndGetTokens();
     var userToken = googleOauth.getIDToken();
+
     $('#userData #userPicture').attr("src", userToken['picture']);
     $('#userData #name').text(userToken['name']);
+    $('#login').hide();
+    $('#userData').show();
+    setStatusText('', 'clear');
+});
+
+$("#convertButton").click(function () {
+    if (!isLoggedIn()) {
+        setStatusText('Please login first', 'warning');
+        return;
+    }
+    var fileId = $("#docID").val();
+    exportFile(fileId);
 });
 
 $("#displayButton").click(function () {
+    if (!isLoggedIn()) {
+        setStatusText('Please login first', 'warning');
+        return;
+    }
     fs.readFile(filename, 'utf-8', (err, data) => {
-        if(err){
+        if (err){
             alert("An error ocurred reading the file :" + err.message);
             return;
         }
@@ -37,9 +49,12 @@ $("#displayButton").click(function () {
 });
 
 $("#xmlButton").click(function() {
-    var html = null;
+    if (!isLoggedIn()) {
+        setStatusText('Please login first', 'warning');
+        return;
+    }
     fs.readFile(filename, 'utf-8', (err, data) => {
-        if(err){
+        if (err){
             alert("An error ocurred reading the file :" + err.message);
             return;
         }
@@ -66,7 +81,6 @@ async function getCredentials() {
             if (err) {
                 reject(err);
             } else {
-                console.log(JSON.parse(content));
                 resolve(JSON.parse(content));
             }
         });
@@ -80,7 +94,7 @@ function exportFile(fileId) {
     var drive = setupDrive();
 
     downloadFile(drive, fileId, (filepath) => {
-        console.log('test file downloaded, saved to: ' + filepath);
+        setStatusText('File successfully exported', 'success');
     });
 
 }
@@ -122,6 +136,30 @@ function downloadFile (drive, fileId, callback) {
             .pipe(dest);
         });
     } catch (err) {
-        console.log(err);
+        setStatusText('Error exporting file', 'error');
     }
+}
+
+function isLoggedIn() {
+    if (googleOauth) {
+        return true;
+    }
+    return false;
+}
+
+function setStatusText(text, type) {
+    var node = $('#status');
+    node.removeClass();
+    switch (type) {
+        case "warning":
+            node.addClass('alert alert-warning');
+            break;
+        case "error":
+            node.addClass('alert alert-danger');
+            break;
+        case "success":
+            node.addClass('alert alert-success');
+            break;
+    }
+    node.text(text);
 }

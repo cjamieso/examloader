@@ -1,11 +1,9 @@
-.left {
-    float: left;
+.node-link {
+    cursor: pointer;
+    color: blue;
 }
 
-.right {
-    float: right;
-}
-
-#userdata {
+#userData {
     display: none;
 }
+
