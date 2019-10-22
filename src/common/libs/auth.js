@@ -38,7 +38,7 @@ class ElectronGoogleOAuth2 extends events.EventEmitter {
         this.scopes = scopes;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
-        
+
         this.oauth2Client = new googleapis.google.auth.OAuth2(clientId, clientSecret, redirectUri);
         this.oauth2Client.on('tokens', (tokens) => {
             this.emit('tokens', tokens);

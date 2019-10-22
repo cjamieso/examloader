@@ -16,12 +16,12 @@ class Exam {
         this.html = html;
         this.state = "header";
         this.questions = [];
-        this.questionIndex = 0;
+        this.questionIndex = -1;
         const dom = new JSDOM(this.html);
         this.document = dom.window.document;
         this._cleanExam();
     }
-    
+
     /**
      * Return the questions in the exam.
      */
@@ -66,7 +66,7 @@ class Exam {
                 for (var j = 0; j < node.children.length; j++){
                     this.processElement(node.children[j]);
                 }
-            } 
+            }
             else {
                 this.processElement(node);
             }
@@ -76,7 +76,7 @@ class Exam {
 
     /**
      * Determine the type of list in a google doc parsed into HTML.
-     * 
+     *
      * @param {object} document check styles in this document
      * @param {string} listID the list ID in the google doc
      */
@@ -110,49 +110,67 @@ class Exam {
      * @param {object} child the element to process
      */
     processElement(child) {
-        // this._cleanElement(child);
         var html = child.innerHTML;
-        
+
         switch (this.state) {
             case "header":
+                var type = this._getType(html);
+                if (type) {
+                    this._createQuestion(type);
+                    // console.log("in header, going to question via type");
+                    break;
+                }
                 // List item -> new question.  Ignore any text between questions.
                 if (this._isNumberedList(child)) {
-                    this.state = "question";
-                    this.questions.push(new Question);
+                    this._createQuestion(type);
                     this.questions[this.questionIndex].addQuestionText('<p>' + html + '</p>');
+                    // console.log("in header, going to question via numbered list");
                 }
             break;
             case "question":
-                var matches = html.match(/^\s*@\s*/g);
-                if (matches != undefined) {
-                    this.state = "feedback";
-                    this.questions[this.questionIndex].addFeedback(html.replace(/^\s*@\s*/g, ""));
+                var type = this._getType(html);
+                if (type) {
+                    this._createQuestion(type);
+                    // console.log('in question, going to new question via type');
+                    break;
+                }
+                if (this._checkForFeedback(html)) {
+                    // console.log('in question, found feedback');
                     break;
                 }
                 if (this._isAlphaList(child)) {
+                    // console.log('in question, going to responses');
                     this.state = "responses";
                     this.questions[this.questionIndex].addResponse(html);
                 } else {
+                    if (this._isNumberedList(child) && this.questions[this.questionIndex].getQuestionText() !== "") {
+                        // console.log('found numbered list');
+                        // console.log(this.questions[this.questionIndex].getType());
+                        if (!(this.questions[this.questionIndex].getType() == 'multichoice' || this.questions[this.questionIndex].getType() == 'multichoiceset')) {
+                            // console.log('in question, adding new question');
+                            this._createQuestion("MC");
+                            this.questions[this.questionIndex].addQuestionText('<p>' + html + '</p>');
+                            break;
+                        }
+                    }
+                    // console.log('in question, adding more text');
                     if (html.replace(/<[^>]*>/g, "").trim()) {
-                    this.questions[this.questionIndex].addQuestionText('<p>' + html + '</p>');
+                        this.questions[this.questionIndex].addQuestionText('<p>' + html + '</p>');
                     }
                 }
                 break;
             case "responses":
-                var type = html.match(/^\s*Type:\s*/g);
-                if (this._isNumberedList(child) || (type != undefined)) {
-                    this.state = "question";
-                    this.questions.push(new Question);
-                    this.questionIndex++;
-                    if (type == undefined) {
+                var type = this._getType(html);
+                if (this._isNumberedList(child) || type) {
+                    // console.log('in responses, going to new question');
+                    this._createQuestion(type);
+                    if (!type) {
                         this.questions[this.questionIndex].addQuestionText('<p>' + html + '</p>');
-                        this.questions[this.questionIndex].setType("MC");
-                    } else {
-                        this.questions[this.questionIndex].setType(html.replace(/^\s*Type:\s*/g, ""));
                     }
                     break;
                 }
                 if (this._isAlphaList(child)) {
+                    // console.log('in responses, adding response');
                     this.questions[this.questionIndex].addResponse(html);
                     break;
                 }
@@ -160,28 +178,69 @@ class Exam {
                 break;
             case "feedback":
                 if (this._isAlphaList(child)) {
+                    // console.log('in feedback, found response');
                     this.state = "responses";
                     this.questions[this.questionIndex].addResponse(html);
                 } else {
+                    // console.log('in feedback, adding feedback');
                     this.questions[this.questionIndex].addFeedback(html);
                 }
-            break;
+                break;
             case "tag":
-            break;
+                break;
         }
+    }
+
+    /**
+     * Check for a feedback entry for the element.
+     *
+     * @param {string} html the inner html of the element
+     */
+    _checkForFeedback(html) {
+        var matches = html.match(/^\s*@\s*/g);
+        if (matches != undefined) {
+            this.state = "feedback";
+            this.questions[this.questionIndex].addFeedback(html.replace(/^\s*@\s*/g, ""));
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Create a new question.
+     *
+     * @param {string} type the question type
+     */
+    _createQuestion(type) {
+        this.state = "question";
+        this.questions.push(new Question);
+        this.questionIndex++;
+        if (type) {
+            this.questions[this.questionIndex].setType(type);
+        }
+    }
+
+    /**
+     * Get the question type (if one exists) based on the html
+     *
+     * @param {string} html the inner html of the element
+     */
+    _getType(html) {
+        var type = html.match(/^\s*Type:\s*/g);
+        return (type) ? html.replace(/^\s*Type:\s*/g, "") : null;
     }
 
     /**
      * Check to see if the node is the part of a numbered list
      */
     _isNumberedList(node) {
-      
+
         if (node.tagName === "LI" && this._getListType(node) === 'decimal') {
             return true;
         }
         return false;
     }
-  
+
     /**
      * Check to see if the ndoe is part of an alphabetized list
      */
@@ -227,14 +286,15 @@ class Exam {
         var totalElements = this.document.body.childNodes.length;
         var oldIndex = this.questionIndex;
         this.questionIndex = 0;
-        
+
         for (var i = childIndex + 1; i < totalElements; i++) {
             var node = this.document.body.childNodes[i];
+            console.log(this.questionIndex);
             if (node.tagName == "OL") {
                 for (var j = 0; j < node.children.length; j++) {
-                    var answers = node.children[j].textContent.replace(/\s*/g, "").split(',');
+                    var answers = node.children[j].textContent.split(/[,\/]/);
                     for (var k = 0; k < answers.length; k++) {
-                        this.questions[this.questionIndex].addAnswer(answers[k]);
+                        this.questions[this.questionIndex].addAnswer(answers[k].trim());
                     }
                     this.questionIndex++;
                 }
@@ -243,7 +303,7 @@ class Exam {
         }
         this.questionIndex = oldIndex;
     }
-  
+
   };
 
   module.exports = {exam: Exam};

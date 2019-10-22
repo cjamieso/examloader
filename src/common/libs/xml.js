@@ -37,25 +37,94 @@ class XML {
     }
 
     /**
-     * Retrieve the XML for a question.
+     * Get the XML for a question.
+     *
+     * @param {Number} index the numerical index of the question
      */
     getQuestionXML(index) {
-        var content = "";
+
+        var content = this._getQuestionHeaderXML(index);
+        switch (this.questions[index].getType()) {
+            case "multichoice":
+            case "multichoiceset":
+                content = content + this._getMultipleChoiceXML(index);
+                break;
+            case "essay":
+                content = content + this._getEssayXML(index);
+                break;
+            case "shortanswer":
+                content = content + this._getShortAnswerXML(index);
+                break;
+        }
+        content = content + '</question>';
+        return content;
+    }
+
+    /**
+     * Get the header XML for a question (common).
+     *
+     * @param {Number} index the numerical index of the question
+     */
+    _getQuestionHeaderXML(index) {
+        var content = '';
         content = content + '<question type="' + this.questions[index].getType() + '">';
         content = content + '<name><text>' + this.getQuestionName(index) + '</text></name>';
         content = content + '<questiontext format="html"><text><![CDATA[' + this.questions[index].getQuestionText() + ']]></text></questiontext>';
         var feedback = this.questions[index].getFeedback();
         if (feedback.length > 0) {
-        content = content + '<generalfeedback format="html"><text><![CDATA[' + this.escapeXML(feedback) + ']]></text></generalfeedback>';
+            content = content + '<generalfeedback format="html"><text><![CDATA[' + this.escapeXML(feedback) + ']]></text></generalfeedback>';
         }
-        content = content + '<defaultgrade>1.0000000</defaultgrade><penalty>0.3333333</penalty><hidden>0</hidden><shuffleanswers>0</shuffleanswers>';
+        content = content + '<defaultgrade>1.0000000</defaultgrade><penalty>0.3333333</penalty><hidden>0</hidden>';
         // NEEDS TAG
-        if (this.questions[index].getType() == 'multichoice') {
+        return content;
+    }
+
+    /**
+     * Get the Moodle XML for a multiple choice question.
+     *
+     * @param {Number} index the numerical index of the question
+     */
+    _getMultipleChoiceXML(index) {
+        var content = "";
+        content = content + '<shuffleanswers>0</shuffleanswers>';
         content = content + '<answernumbering>abc</answernumbering>';
         content = content + '<single>true</single>';
+        var responses = this.questions[index].getResponses();
+        var answers = this.decodeAnswers(this.questions[index].getType(), this.questions[index].getCorrectAnswers());
+        for (var i = 0; i < responses.length; i++) {
+            content = content + '<answer fraction="' + this.isCorrect(i, answers).toString() + '" format="html"><text>' + this.escapeXML(responses[i]) + '</text></answer>';
         }
-        content = content + this.getResponsesXML(index);
-        content = content + '</question>';
+        return content;
+    }
+
+    /**
+     * Get the Moodle XML for a short answer question.
+     *
+     * @param {Number} index the numerical index of the question
+     */
+    _getShortAnswerXML(index) {
+        var content = "";
+        var answers = this.questions[index].getCorrectAnswers();
+        for (var i = 0; i < answers.length; i++) {
+            content = content + '<answer fraction="100" format="moodle_auto_format"><text>' + this.escapeXML(answers[i]) + '</text></answer>';
+        }
+        return content;
+    }
+
+    /**
+     * Get the Moodle XML for an essay question.
+     *
+     * @param {Number} index the numerical index of the question
+     */
+    _getEssayXML(index) {
+        var content = "";
+        content = content + '<responseformat>html</responseformat><responserequired>1</responserequired><responsefieldlines>5</responsefieldlines>';
+        content = content + '<graderinfo format="html"><text><![CDATA[<ul>';
+        var answers = this.questions[index].getCorrectAnswers();
+        for (var i = 0; i < answers.length; i++) {
+            content = content + "<li>" + answers[i] + "</li>";
+        }
+        content = content + '</ul>]]></text></graderinfo>';
         return content;
     }
   
@@ -78,8 +147,7 @@ class XML {
     getQuestionName(index) {
         var name = this.questions[index].getQuestionText().replace(/<br\/>/g, ' ');
         name = name.replace(/<[^>]+>/g, '');
-        return "Q" + (index+1).toString().padStart(3, '0') + this.escapeXML(name.substring(0, 100));
-        // return Utilities.formatString('Q%03d: %s', index+1, this.escapeXML(name.substring(0, 100)));
+        return "Q" + (index+1).toString().padStart(3, '0') + " " + this.escapeXML(name.substring(0, 100));
     }
   
     /**
@@ -98,9 +166,9 @@ class XML {
     decodeAnswers(type, answers) {
         var correct = [];
         for (var i = 0; i < answers.length; i++) {
-        if (type == "multichoice" || type == "multichoiceset") {
-            correct.push(answers[i].toLowerCase().charCodeAt(0) - 97);
-        }
+            if (type == "multichoice" || type == "multichoiceset") {
+                correct.push(answers[i].toLowerCase().charCodeAt(0) - 97);
+            }
         }
         return correct;
     }
